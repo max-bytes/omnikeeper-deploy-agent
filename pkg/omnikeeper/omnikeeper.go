@@ -22,11 +22,6 @@ func BuildGraphQLClient(ctx context.Context, omnikeeperURL string, keycloakClien
 		Endpoint: *oAuthEndpoint,
 	}
 
-	// log.Printf("!%s!", username)
-	// log.Printf("!%s!", password)
-	// log.Print(oAuthEndpoint)
-	// log.Print("!")
-
 	token, err := oauth2cfg.PasswordCredentialsToken(ctx, username, password)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting token: %w", err)

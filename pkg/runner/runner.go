@@ -1,11 +1,8 @@
-package main
+package runner
 
 import (
 	"bytes"
 	"context"
-	"deploy-agent/pkg/config"
-	"deploy-agent/pkg/omnikeeper"
-	"deploy-agent/pkg/processors"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
+	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/omnikeeper"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,7 +31,7 @@ func init() {
 	log.SetLevel(logrus.TraceLevel) // is overwritten by configuration below
 }
 
-func main() {
+func Run(processor Processor) {
 	log.Infof("omnikeeper-deploy-agent (Version: %s)", version)
 	flag.Parse()
 
@@ -47,17 +47,15 @@ func main() {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	processor := processors.TelegrafProcessor{}
-
-	runOnce(processor)
+	runOnce(processor, cfg, &log)
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runOnce(processor)
+		runOnce(processor, cfg, &log)
 	}
 
 	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
 }
 
-func runOnce(processor processors.Processor) error {
+func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) error {
 	ctx := context.Background()
 
 	log.Debugf("Starting processing...")
@@ -68,14 +66,14 @@ func runOnce(processor processors.Processor) error {
 	}
 
 	log.Debugf("Starting fetch from omnikeeper...")
-	outputItems, err := processor.Process(ctx, okClient, &log)
+	outputItems, err := processor.Process(ctx, okClient, log)
 	if err != nil {
 		return fmt.Errorf("Processing error: %w", err)
 	}
 	log.Debugf("Finished fetch from omnikeeper")
 
 	log.Debugf("Updating output files...")
-	_, err = updateOutputFiles(outputItems, &log)
+	_, err = updateOutputFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
 		return fmt.Errorf("Error updating output files: %w", err)
 	}
@@ -89,9 +87,9 @@ func runOnce(processor processors.Processor) error {
 	return nil
 }
 
-func updateOutputFiles(outputItems map[string]interface{}, log *logrus.Logger) (map[string]bool, error) {
-	if _, err := os.Stat(cfg.OutputDirectory); os.IsNotExist(err) {
-		err = os.Mkdir(cfg.OutputDirectory, os.ModePerm)
+func updateOutputFiles(outputItems map[string]interface{}, outputDirectory string, log *logrus.Logger) (map[string]bool, error) {
+	if _, err := os.Stat(outputDirectory); os.IsNotExist(err) {
+		err = os.Mkdir(outputDirectory, os.ModePerm)
 		if err != nil {
 			return nil, fmt.Errorf("Error creating output directory: %w", err)
 		}
@@ -105,7 +103,7 @@ func updateOutputFiles(outputItems map[string]interface{}, log *logrus.Logger) (
 			continue
 		}
 		outputFilename := id + ".json"
-		fullOutputFilename := filepath.Join(cfg.OutputDirectory, outputFilename)
+		fullOutputFilename := filepath.Join(outputDirectory, outputFilename)
 
 		oldFile, err := os.Open(fullOutputFilename)
 		defer oldFile.Close()
@@ -135,14 +133,14 @@ func updateOutputFiles(outputItems map[string]interface{}, log *logrus.Logger) (
 		processedFiles[outputFilename] = true
 	}
 	// delete old files (i.e. files that have not been written)
-	dirRead, _ := os.Open(cfg.OutputDirectory)
+	dirRead, _ := os.Open(outputDirectory)
 	dirFiles, _ := dirRead.Readdir(0)
 	for index := range dirFiles {
 		fileHere := dirFiles[index]
 		filename := fileHere.Name()
 
 		if !processedFiles[filename] {
-			fullFilename := filepath.Join(cfg.OutputDirectory, filename)
+			fullFilename := filepath.Join(outputDirectory, filename)
 			err := os.Remove(fullFilename)
 			if err != nil {
 				log.Errorf("Error deleting old file %s: %w", filename, err)
