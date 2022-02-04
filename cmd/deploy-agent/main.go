@@ -1,20 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"deploy-agent/pkg/config"
+	"deploy-agent/pkg/omnikeeper"
+	"deploy-agent/pkg/processors"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/shurcooL/graphql"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 )
 
 var (
@@ -32,7 +32,7 @@ func init() {
 }
 
 func main() {
-	log.Infof("deploy-agent (Version: %s)", version)
+	log.Infof("omnikeeper-deploy-agent (Version: %s)", version)
 	flag.Parse()
 
 	log.Infof("Loading config from file: %s", *configFile)
@@ -47,135 +47,108 @@ func main() {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	var waitGrp sync.WaitGroup
-	waitGrp.Add(1)
+	processor := processors.TelegrafProcessor{}
 
-	go func() {
-		for range time.Tick(time.Duration(cfg.CollectInterval * int(time.Second))) {
-			oauth2cfg := &oauth2.Config{
-				ClientID: cfg.ClientId,
-				Endpoint: oauth2.Endpoint{
-					AuthURL:  cfg.AuthURL,
-					TokenURL: cfg.TokenURL,
-				},
+	runOnce(processor)
+	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
+		runOnce(processor)
+	}
+
+	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
+}
+
+func runOnce(processor processors.Processor) error {
+	ctx := context.Background()
+
+	log.Debugf("Starting processing...")
+
+	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password)
+	if err != nil {
+		return fmt.Errorf("Error building omnikeeper GraphQL client: %w", err)
+	}
+
+	log.Debugf("Starting fetch from omnikeeper...")
+	outputItems, err := processor.Process(ctx, okClient, &log)
+	if err != nil {
+		return fmt.Errorf("Processing error: %w", err)
+	}
+	log.Debugf("Finished fetch from omnikeeper")
+
+	log.Debugf("Updating output files...")
+	_, err = updateOutputFiles(outputItems, &log)
+	if err != nil {
+		return fmt.Errorf("Error updating output files: %w", err)
+	}
+	log.Debugf("Finished updating output files")
+
+	// TODO: trigger ansible for each updated item
+	// updatedItems
+
+	log.Debugf("Finished processing")
+
+	return nil
+}
+
+func updateOutputFiles(outputItems map[string]interface{}, log *logrus.Logger) (map[string]bool, error) {
+	if _, err := os.Stat(cfg.OutputDirectory); os.IsNotExist(err) {
+		err = os.Mkdir(cfg.OutputDirectory, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating output directory: %w", err)
+		}
+	}
+	processedFiles := make(map[string]bool, len(outputItems))
+	updatedItems := make(map[string]bool, len(outputItems))
+	for id, output := range outputItems {
+		newJsonOutput, err := json.MarshalIndent(output, "", " ")
+		if err != nil {
+			log.Errorf("Error marshalling output JSON for ID %s: %w", id, err)
+			continue
+		}
+		outputFilename := id + ".json"
+		fullOutputFilename := filepath.Join(cfg.OutputDirectory, outputFilename)
+
+		oldFile, err := os.Open(fullOutputFilename)
+		defer oldFile.Close()
+		var oldJsonOutput []byte = nil
+		if err == nil {
+			// an old file exists, read it
+			readOldJsonOutput, err := ioutil.ReadAll(oldFile)
+			if err != nil {
+				// if we cannot read it, log a warning, but otherwise continue
+				log.Warningf("Error reading existing output file %s: %w", outputFilename, err)
+			} else {
+				oldJsonOutput = readOldJsonOutput
 			}
+		}
 
-			ctx := context.Background()
-			token, tokenErr := oauth2cfg.PasswordCredentialsToken(ctx, cfg.Username, cfg.Password)
-
-			if tokenErr != nil {
-				// return nil, tokenErr
-				// log the error here
+		// compare old and new data, byte-by-byte, write/update output file only if a difference was detected
+		if bytes.Compare(oldJsonOutput, newJsonOutput) != 0 {
+			err = ioutil.WriteFile(fullOutputFilename, newJsonOutput, os.ModePerm)
+			if err != nil {
+				log.Errorf("Error writing output JSON for ID %s: %w", id, err)
 				continue
 			}
+			updatedItems[id] = true
+			log.Tracef("Updated output file %s", outputFilename)
+		}
 
-			tokenSource := oauth2cfg.TokenSource(ctx, token)
-			httpClient := oauth2.NewClient(ctx, tokenSource)
-			client := graphql.NewClient(cfg.ServerUrl, httpClient)
+		processedFiles[outputFilename] = true
+	}
+	// delete old files (i.e. files that have not been written)
+	dirRead, _ := os.Open(cfg.OutputDirectory)
+	dirFiles, _ := dirRead.Readdir(0)
+	for index := range dirFiles {
+		fileHere := dirFiles[index]
+		filename := fileHere.Name()
 
-			fmt.Print(httpClient)
-
-			var query = ETQuery{}
-			layers := make([]graphql.String, len(cfg.LayerIds))
-			for i, v := range cfg.LayerIds {
-				layers[i] = graphql.String(v)
-			}
-			variables := map[string]interface{}{
-				"traitID": graphql.String(cfg.TraitId),
-				"layers":  layers,
-			}
-			err := client.Query(context.Background(), &query, variables)
+		if !processedFiles[filename] {
+			fullFilename := filepath.Join(cfg.OutputDirectory, filename)
+			err := os.Remove(fullFilename)
 			if err != nil {
-				// return nil, err
-			}
-
-			items := make(map[string]string)
-			for _, value := range query.EffectiveTraitsForTrait {
-				// fmt.Print(value)
-				item := make(map[string]string)
-
-				naemonName := ""
-				naemonConfig := ""
-
-				for _, v := range value.TraitAttributes {
-					values := v.MergedAttribute.Attribute.Value.Values
-
-					// if string(v.Identifier) == cfg.NaemonNameIdentifier {
-					// 	naemonName =
-					// }
-
-					identifier := string(v.Identifier)
-					if !v.MergedAttribute.Attribute.Value.IsArray {
-						item[identifier] = string(values[0])
-					} else {
-						valuesStr := make([]string, len(values))
-						for i, v := range values {
-							valuesStr[i] = string(v)
-						}
-						item[identifier] = strings.Join(valuesStr, ",")
-					}
-				}
-
-				if n, ok := item[cfg.NaemonNameIdentifier]; ok {
-					naemonName = n
-				}
-
-				if c, ok := item[cfg.NaemonConfigIdentifier]; ok {
-					naemonConfig = c
-				}
-
-				items[naemonName] = naemonConfig
-
-			}
-
-			// now we need to process foreach item
-			if _, err := os.Stat(cfg.NaemonConfigDirectory); os.IsNotExist(err) {
-				mkDirErr := os.Mkdir(cfg.NaemonConfigDirectory, os.ModePerm)
-				if mkDirErr != nil {
-					// log.Fatal(err)
-				}
-			}
-
-			for naemon, config := range items {
-				nPath := filepath.Join(cfg.NaemonConfigDirectory, "/", naemon)
-				if _, err := os.Stat(nPath); os.IsNotExist(err) {
-					nDirErr := os.Mkdir(nPath, os.ModePerm)
-					if nDirErr != nil {
-						// log error here
-					}
-				}
-
-				wErr := ioutil.WriteFile(filepath.Join(nPath, "/", (naemon+".json")), []byte(config), os.ModePerm)
-				if wErr != nil {
-
-				}
-				// fmt.Print(config[0])
+				log.Errorf("Error deleting old file %s: %w", filename, err)
+				continue
 			}
 		}
-	}()
-
-	waitGrp.Wait()
-
-	log.Infof("Stopping deploy-agent (Version: %s)", version)
-}
-
-type ETQuery struct {
-	EffectiveTraitsForTrait []struct {
-		TraitAttributes []struct {
-			Identifier      graphql.String
-			MergedAttribute struct {
-				Attribute struct {
-					Value struct {
-						IsArray graphql.Boolean
-						Values  []graphql.String
-					}
-				}
-			}
-		}
-	} `graphql:"effectiveTraitsForTrait(traitID: $traitID, layers: $layers)"`
-}
-
-type NaemonItem struct {
-	Name   string
-	Config string
+	}
+	return updatedItems, nil
 }

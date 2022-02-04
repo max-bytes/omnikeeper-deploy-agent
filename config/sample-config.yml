@@ -1,0 +1,7 @@
+log_level: Trace
+username: omnikeeper-client-library-test
+password: omnikeeper-client-library-test
+omnikeeper_backend_url: "https://10.0.0.43:45455"
+keycloak_client_id: landscape-omnikeeper
+collect_interval_seconds: 60
+output_directory: ./output
