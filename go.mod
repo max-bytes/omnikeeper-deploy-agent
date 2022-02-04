@@ -15,4 +15,5 @@ require (
 	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sys v0.0.0-20200803210538-64077c9b5642 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 )

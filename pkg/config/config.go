@@ -1,10 +1,11 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"gopkg.in/yaml.v2"
 )
 
 func ReadConfigFromFile(configFile string, cfg *Configuration) error {
@@ -18,7 +19,7 @@ func ReadConfigFromFile(configFile string, cfg *Configuration) error {
 	if err != nil {
 		return fmt.Errorf("can't read config file: %w", err)
 	}
-	err = json.Unmarshal(byteValue, &cfg)
+	err = yaml.Unmarshal(byteValue, &cfg)
 	if err != nil {
 		return fmt.Errorf("can't parse config file: %w", err)
 	}
@@ -26,18 +27,11 @@ func ReadConfigFromFile(configFile string, cfg *Configuration) error {
 }
 
 type Configuration struct {
-	LogLevel               string `json:"log_level"`
-	Username               string
-	Password               string
-	ServerUrl              string   `json:"server_url"`
-	AuthURL                string   `json:"auth_url"`
-	TokenURL               string   `json:"token_url"`
-	ClientId               string   `json:"client_id"`
-	CollectInterval        int      `json:"collect_interval"`
-	TraitId                string   `json:"trait_id"`
-	LayerIds               []string `json:"layer_ids"`
-	ConfigType             string   `json:"config_type"`
-	NaemonNameIdentifier   string   `json:"naemon_name_identifier"`
-	NaemonConfigIdentifier string   `json:"naemon_config_identifier"`
-	NaemonConfigDirectory  string   `json:"naemon_config_directory"`
+	LogLevel               string `yaml:"log_level"`
+	Username               string `yaml:"username"`
+	Password               string `yaml:"password"`
+	OmnikeeperBackendUrl   string `yaml:"omnikeeper_backend_url"`
+	KeycloakClientId       string `yaml:"keycloak_client_id"`
+	CollectIntervalSeconds int    `yaml:"collect_interval_seconds"`
+	OutputDirectory        string `yaml:"output_directory"`
 }

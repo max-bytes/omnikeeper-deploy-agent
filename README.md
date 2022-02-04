@@ -11,3 +11,8 @@ docker run `
 --mount type=bind,source="$(pwd)"/config-example.json,target=/config-example.json `
 deploy-agentv1 --config config-example.json
 ```
+
+## Run from source
+```
+go run cmd/deploy-agent/main.go --config config/sample-config.yml
+```
