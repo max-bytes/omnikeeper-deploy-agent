@@ -2,6 +2,7 @@ package omnikeeper
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,8 +43,12 @@ func fetchOAuthInfo(omnikeeperURL string) (*oauth2.Endpoint, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	// TODO: remove the InsecureSkipVerify again
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	var httpClient = &http.Client{
-		Timeout: time.Second * 20,
+		Timeout:   time.Second * 20,
+		Transport: customTransport,
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
