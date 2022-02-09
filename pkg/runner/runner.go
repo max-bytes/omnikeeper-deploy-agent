@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/ansible"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/omnikeeper"
 
@@ -36,7 +37,7 @@ func Run(processor Processor) {
 	flag.Parse()
 
 	log.Infof("Loading config from file: %s", *configFile)
-	err := config.ReadConfigFromFile(*configFile, &cfg)
+	err := config.ReadConfigFromFilename(*configFile, &cfg)
 	if err != nil {
 		log.Fatalf("Error opening config file: %s", err)
 	}
@@ -72,22 +73,58 @@ func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) 
 	}
 	log.Debugf("Finished fetch from omnikeeper")
 
-	log.Debugf("Updating output files...")
-	_, err = updateOutputFiles(outputItems, cfg.OutputDirectory, log)
+	log.Debugf("Creating variables files...")
+	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
-		return fmt.Errorf("Error updating output files: %w", err)
+		return fmt.Errorf("Error creating variables files: %w", err)
 	}
-	log.Debugf("Finished updating output files")
+	log.Debugf("Finished creating variables files")
 
-	// TODO: trigger ansible for each updated item
-	// updatedItems
+	if len(updatedItems) > 0 {
+
+		log.Debugf("Running ansible for updated items...")
+		for id := range updatedItems {
+			ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id)
+
+			fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
+			if ansibleItemErr != nil {
+				log.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
+
+				// delete the .processed file, if present
+				_ = os.Remove(fullProcessedFilename)
+			} else {
+				// place a .processed file to indicate that ansible successfully processed the host
+				_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
+				if err != nil {
+					// can't do much else other than report the error
+					log.Errorf("Error writing .processed file for item %s: %v", id, err)
+				}
+			}
+		}
+		log.Debugf("Finished running ansible for updated items...")
+	} else {
+		log.Debugf("Skipping running ansible because no items were updated")
+	}
 
 	log.Debugf("Finished processing")
 
 	return nil
 }
 
-func updateOutputFiles(outputItems map[string]interface{}, outputDirectory string, log *logrus.Logger) (map[string]bool, error) {
+func buildProcessedFilename(id string) string {
+	return id + ".processed"
+}
+func buildFullProcessedFilename(id string, outputDirectory string) string {
+	return filepath.Join(outputDirectory, buildProcessedFilename(id))
+}
+func buildOutputFilename(id string) string {
+	return id + ".json"
+}
+func buildFullOutputFilename(id string, outputDirectory string) string {
+	return filepath.Join(outputDirectory, buildOutputFilename(id))
+}
+
+func createVariablesFiles(outputItems map[string]interface{}, outputDirectory string, log *logrus.Logger) (map[string]bool, error) {
 	if _, err := os.Stat(outputDirectory); os.IsNotExist(err) {
 		err = os.Mkdir(outputDirectory, os.ModePerm)
 		if err != nil {
@@ -102,8 +139,8 @@ func updateOutputFiles(outputItems map[string]interface{}, outputDirectory strin
 			log.Errorf("Error marshalling output JSON for ID %s: %w", id, err)
 			continue
 		}
-		outputFilename := id + ".json"
-		fullOutputFilename := filepath.Join(outputDirectory, outputFilename)
+		outputFilename := buildOutputFilename(id)
+		fullOutputFilename := buildFullOutputFilename(id, outputDirectory)
 
 		oldFile, err := os.Open(fullOutputFilename)
 		defer oldFile.Close()
@@ -119,20 +156,27 @@ func updateOutputFiles(outputItems map[string]interface{}, outputDirectory strin
 			}
 		}
 
-		// compare old and new data, byte-by-byte, write/update output file only if a difference was detected
-		if bytes.Compare(oldJsonOutput, newJsonOutput) != 0 {
+		processedFilename := buildProcessedFilename(id)
+		fullProcessedFilename := buildFullProcessedFilename(id, outputDirectory)
+		_, errFPCheck := os.Stat(fullProcessedFilename)
+		processedFileExists := !os.IsNotExist(errFPCheck)
+
+		// first check if a processed file exists
+		// then, compare old and new data, byte-by-byte, write/update output file only if a difference was detected
+		if !processedFileExists || bytes.Compare(oldJsonOutput, newJsonOutput) != 0 {
 			err = ioutil.WriteFile(fullOutputFilename, newJsonOutput, os.ModePerm)
 			if err != nil {
 				log.Errorf("Error writing output JSON for ID %s: %w", id, err)
 				continue
 			}
 			updatedItems[id] = true
-			log.Tracef("Updated output file %s", outputFilename)
+			log.Tracef("Updated variable file %s", outputFilename)
 		}
 
 		processedFiles[outputFilename] = true
+		processedFiles[processedFilename] = true
 	}
-	// delete old files (i.e. files that have not been written)
+	// delete old items (i.e. files that have not been processed)
 	dirRead, _ := os.Open(outputDirectory)
 	dirFiles, _ := dirRead.Readdir(0)
 	for index := range dirFiles {
