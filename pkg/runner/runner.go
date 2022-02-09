@@ -61,7 +61,7 @@ func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) 
 
 	log.Debugf("Starting processing...")
 
-	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password)
+	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password, cfg.OmnikeeperInsecureSkipVerify)
 	if err != nil {
 		log.Errorf("Error building omnikeeper GraphQL client: %w", err)
 		return

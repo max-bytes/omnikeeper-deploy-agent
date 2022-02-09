@@ -34,14 +34,15 @@ func ReadConfigFromFilename(configFile string, cfg *Configuration) error {
 }
 
 type Configuration struct {
-	LogLevel               string               `yaml:"log_level"`
-	Username               string               `yaml:"username"`
-	Password               string               `yaml:"password"`
-	OmnikeeperBackendUrl   string               `yaml:"omnikeeper_backend_url"`
-	KeycloakClientId       string               `yaml:"keycloak_client_id"`
-	CollectIntervalSeconds int                  `yaml:"collect_interval_seconds"`
-	OutputDirectory        string               `yaml:"output_directory"`
-	Ansible                AnsibleCalloutConfig `yaml:"ansible"`
+	LogLevel                     string               `yaml:"log_level"`
+	Username                     string               `yaml:"username"`
+	Password                     string               `yaml:"password"`
+	OmnikeeperBackendUrl         string               `yaml:"omnikeeper_backend_url"`
+	OmnikeeperInsecureSkipVerify bool                 `yaml:"omnikeeper_insecure_skip_verify"`
+	KeycloakClientId             string               `yaml:"keycloak_client_id"`
+	CollectIntervalSeconds       int                  `yaml:"collect_interval_seconds"`
+	OutputDirectory              string               `yaml:"output_directory"`
+	Ansible                      AnsibleCalloutConfig `yaml:"ansible"`
 }
 
 type AnsibleCalloutConfig struct {

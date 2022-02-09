@@ -12,9 +12,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func BuildGraphQLClient(ctx context.Context, omnikeeperURL string, keycloakClientID string, username string, password string) (*graphql.Client, error) {
+func BuildGraphQLClient(ctx context.Context, omnikeeperURL string, keycloakClientID string, username string, password string, insecureSkipVerify bool) (*graphql.Client, error) {
 
-	oAuthEndpoint, err := fetchOAuthInfo(omnikeeperURL)
+	oAuthEndpoint, err := fetchOAuthInfo(omnikeeperURL, insecureSkipVerify)
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching oauth info: %w", err)
 	}
@@ -29,13 +29,20 @@ func BuildGraphQLClient(ctx context.Context, omnikeeperURL string, keycloakClien
 		return nil, fmt.Errorf("Error getting token: %w", err)
 	}
 
-	httpClient := oauth2cfg.Client(ctx, token)
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecureSkipVerify}
+	var baseHttpClient = &http.Client{
+		Timeout:   time.Second * 30,
+		Transport: customTransport,
+	}
+	modifiedCtx := context.WithValue(ctx, oauth2.HTTPClient, baseHttpClient)
+	httpClient := oauth2cfg.Client(modifiedCtx, token)
 	client := graphql.NewClient(fmt.Sprintf("%s/graphql", omnikeeperURL), httpClient)
 
 	return client, nil
 }
 
-func fetchOAuthInfo(omnikeeperURL string) (*oauth2.Endpoint, error) {
+func fetchOAuthInfo(omnikeeperURL string, insecureSkipVerify bool) (*oauth2.Endpoint, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/.well-known/openid-configuration", omnikeeperURL), nil)
 	if err != nil {
@@ -43,9 +50,8 @@ func fetchOAuthInfo(omnikeeperURL string) (*oauth2.Endpoint, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	// TODO: remove the InsecureSkipVerify again
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecureSkipVerify}
 	var httpClient = &http.Client{
 		Timeout:   time.Second * 20,
 		Transport: customTransport,
