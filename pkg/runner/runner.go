@@ -56,27 +56,30 @@ func Run(processor Processor) {
 	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
 }
 
-func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) error {
+func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) {
 	ctx := context.Background()
 
 	log.Debugf("Starting processing...")
 
 	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password)
 	if err != nil {
-		return fmt.Errorf("Error building omnikeeper GraphQL client: %w", err)
+		log.Errorf("Error building omnikeeper GraphQL client: %w", err)
+		return
 	}
 
 	log.Debugf("Starting fetch from omnikeeper...")
 	outputItems, err := processor.Process(ctx, okClient, log)
 	if err != nil {
-		return fmt.Errorf("Processing error: %w", err)
+		log.Errorf("Processing error: %w", err)
+		return
 	}
 	log.Debugf("Finished fetch from omnikeeper")
 
 	log.Debugf("Creating variables files...")
 	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
-		return fmt.Errorf("Error creating variables files: %w", err)
+		log.Errorf("Error creating variables files: %w", err)
+		return
 	}
 	log.Debugf("Finished creating variables files")
 
@@ -107,8 +110,6 @@ func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) 
 	}
 
 	log.Debugf("Finished processing")
-
-	return nil
 }
 
 func buildProcessedFilename(id string) string {

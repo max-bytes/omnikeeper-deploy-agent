@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/shurcooL/graphql"
 	"golang.org/x/oauth2"
@@ -41,7 +42,10 @@ func fetchOAuthInfo(omnikeeperURL string) (*oauth2.Endpoint, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	var httpClient = &http.Client{
+		Timeout: time.Second * 20,
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("Could not fetch openid-configuration from omnikeeper instance at %s: %w", omnikeeperURL, err)
 	}
