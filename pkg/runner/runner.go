@@ -87,7 +87,8 @@ func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) 
 
 		log.Debugf("Running ansible for updated items...")
 		for id := range updatedItems {
-			ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id)
+			fullOutputFilename := buildFullOutputFilename(id, cfg.OutputDirectory)
+			ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id, fullOutputFilename, log)
 
 			fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
 			if ansibleItemErr != nil {

@@ -2,11 +2,13 @@ package ansible
 
 import (
 	"context"
+	"io/ioutil"
 	"testing"
 
 	"github.com/apenella/go-ansible/pkg/options"
 	"github.com/apenella/go-ansible/pkg/playbook"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
+	"github.com/sirupsen/logrus"
 )
 
 func TestCallout(t *testing.T) {
@@ -33,6 +35,8 @@ func TestCallout(t *testing.T) {
 		ConnectionOptions: ansibleConnectionOptions,
 	}
 
-	err := Callout(ctx, cfg, "H12312312")
+	log := logrus.New()
+	log.Out = ioutil.Discard
+	err := Callout(ctx, cfg, "H12312312", "~/H12312312.json", log)
 	t.Error(err)
 }

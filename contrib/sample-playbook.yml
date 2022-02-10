@@ -1,0 +1,19 @@
+---
+
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: include host variables
+      include_vars: 
+        file: "{{host_variable_file}}"
+        name: ok_vars
+
+    - name: display host_id variable
+      ansible.builtin.debug:
+        var: host_id
+
+    - name: display ok_vars for host
+      ansible.builtin.debug:
+        var: ok_vars
+
+    # extend me...

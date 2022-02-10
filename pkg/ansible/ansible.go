@@ -5,9 +5,10 @@ import (
 
 	"github.com/apenella/go-ansible/pkg/playbook"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
+	"github.com/sirupsen/logrus"
 )
 
-func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string) error {
+func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string, variableFile string, log *logrus.Logger) error {
 
 	playbook := &playbook.AnsiblePlaybookCmd{
 		Playbooks:         config.Playbooks,
@@ -16,10 +17,17 @@ func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string)
 		Binary:            config.AnsibleBinary,
 	}
 
-	// overwrite/force set ansible variable host_id
+	// overwrite/force set ansible variable host_id and host_variable_file
 	playbook.Options.ExtraVars["host_id"] = id
+	playbook.Options.ExtraVars["host_variable_file"] = variableFile
 
-	err := playbook.Run(ctx)
+	finalCommand, err := playbook.Command()
+	if err != nil {
+		return err
+	}
+	log.Tracef("Calling playbook for item %s: %s", id, finalCommand)
+
+	err = playbook.Run(ctx)
 	if err != nil {
 		return err
 	}
