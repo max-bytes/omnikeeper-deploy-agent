@@ -8,5 +8,5 @@ import (
 )
 
 type Processor interface {
-	Process(ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error)
+	Process(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error)
 }

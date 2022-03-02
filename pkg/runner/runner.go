@@ -48,15 +48,15 @@ func Run(processor Processor) {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	runOnce(processor, cfg, &log)
+	runOnce(processor, *configFile, cfg, &log)
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runOnce(processor, cfg, &log)
+		runOnce(processor, *configFile, cfg, &log)
 	}
 
 	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
 }
 
-func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) {
+func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) {
 	ctx := context.Background()
 
 	log.Debugf("Starting processing...")
@@ -68,7 +68,7 @@ func runOnce(processor Processor, cfg config.Configuration, log *logrus.Logger) 
 	}
 
 	log.Debugf("Starting fetch from omnikeeper...")
-	outputItems, err := processor.Process(ctx, okClient, log)
+	outputItems, err := processor.Process(configFile, ctx, okClient, log)
 	if err != nil {
 		log.Errorf("Processing error: %w", err)
 		return

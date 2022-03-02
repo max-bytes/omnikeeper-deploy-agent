@@ -16,7 +16,7 @@ func main() {
 type SampleAppProcessor struct {
 }
 
-func (p SampleAppProcessor) Process(ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error) {
+func (p SampleAppProcessor) Process(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error) {
 	variables := map[string]interface{}{}
 	var query = SampleAppQuery{}
 	err := okClient.Query(ctx, &query, variables)
