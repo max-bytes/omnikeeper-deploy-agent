@@ -46,8 +46,9 @@ type Configuration struct {
 }
 
 type AnsibleCalloutConfig struct {
+	Disabled          bool
 	Playbooks         []string
 	Options           *playbook.AnsiblePlaybookOptions
-	ConnectionOptions *options.AnsibleConnectionOptions
-	AnsibleBinary     string
+	ConnectionOptions *options.AnsibleConnectionOptions `yaml:"connection_options"`
+	AnsibleBinary     string                            `yaml:"ansible_binary"`
 }

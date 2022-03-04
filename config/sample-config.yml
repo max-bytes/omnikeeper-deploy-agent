@@ -7,10 +7,11 @@ keycloak_client_id: landscape-omnikeeper
 collect_interval_seconds: 60
 output_directory: /tmp/okda-variables # changeme
 ansible:
-  ansiblebinary: ansible-playbook
+  disabled: false
+  ansible_binary: ansible-playbook
   playbooks:
     - contrib/sample-playbook.yml
-  connectionoptions:
+  connection_options:
     privatekey: /keys/id_rsa # changeme
     user: user # changeme
   options:
