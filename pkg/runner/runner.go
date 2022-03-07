@@ -17,21 +17,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	log logrus.Logger
-)
-
 var cfg = config.Configuration{}
 
-func init() {
-	log = *logrus.StandardLogger()
-	log.SetFormatter(&logrus.JSONFormatter{})
-	log.SetLevel(logrus.TraceLevel) // is overwritten by configuration below
-}
-
-func Run(processor Processor, version string, configFile string) {
-	log.Infof("omnikeeper-deploy-agent (Version: %s)", version)
-
+func Run(processor Processor, configFile string, log *logrus.Logger) {
 	log.Infof("Loading config from file: %s", configFile)
 	err := config.ReadConfigFromFilename(configFile, &cfg)
 	if err != nil {
@@ -44,12 +32,10 @@ func Run(processor Processor, version string, configFile string) {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	runOnce(processor, configFile, cfg, &log)
+	runOnce(processor, configFile, cfg, log)
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runOnce(processor, configFile, cfg, &log)
+		runOnce(processor, configFile, cfg, log)
 	}
-
-	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
 }
 
 func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) {

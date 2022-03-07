@@ -11,14 +11,25 @@ import (
 )
 
 var (
+	log        logrus.Logger
 	version    = "0.0.0-src"
 	configFile = flag.String("config", "config.yml", "Config file location")
 )
 
+func init() {
+	log = *logrus.StandardLogger()
+	log.SetFormatter(&logrus.JSONFormatter{})
+	log.SetLevel(logrus.TraceLevel) // is overwritten by configuration below
+}
+
 func main() {
 	flag.Parse()
 
-	runner.Run(SampleAppProcessor{}, version, *configFile)
+	log.Infof("omnikeeper-deploy-agent-sample (Version: %s)", version)
+
+	runner.Run(SampleAppProcessor{}, *configFile, &log)
+
+	log.Infof("Stopping omnikeeper-deploy-agent-sample (Version: %s)", version)
 }
 
 type SampleAppProcessor struct {
