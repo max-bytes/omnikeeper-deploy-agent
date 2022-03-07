@@ -17,6 +17,11 @@ func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string,
 		Binary:            config.AnsibleBinary,
 	}
 
+	// if the extra vars map is not initialized through config, we do it here
+	if playbook.Options.ExtraVars == nil {
+		playbook.Options.ExtraVars = make(map[string]interface{})
+	}
+
 	// overwrite/force set ansible variable host_id and host_variable_file
 	playbook.Options.ExtraVars["host_id"] = id
 	playbook.Options.ExtraVars["host_variable_file"] = variableFile
