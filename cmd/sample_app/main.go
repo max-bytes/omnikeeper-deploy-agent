@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/runner"
@@ -9,8 +10,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	version    = "0.0.0-src"
+	configFile = flag.String("config", "config.yml", "Config file location")
+)
+
 func main() {
-	runner.Run(SampleAppProcessor{})
+	flag.Parse()
+
+	runner.Run(SampleAppProcessor{}, version, *configFile)
 }
 
 type SampleAppProcessor struct {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,9 +18,7 @@ import (
 )
 
 var (
-	version    = "0.0.0-src"
-	configFile = flag.String("config", "config.yml", "Config file location")
-	log        logrus.Logger
+	log logrus.Logger
 )
 
 var cfg = config.Configuration{}
@@ -32,12 +29,11 @@ func init() {
 	log.SetLevel(logrus.TraceLevel) // is overwritten by configuration below
 }
 
-func Run(processor Processor) {
+func Run(processor Processor, version string, configFile string) {
 	log.Infof("omnikeeper-deploy-agent (Version: %s)", version)
-	flag.Parse()
 
-	log.Infof("Loading config from file: %s", *configFile)
-	err := config.ReadConfigFromFilename(*configFile, &cfg)
+	log.Infof("Loading config from file: %s", configFile)
+	err := config.ReadConfigFromFilename(configFile, &cfg)
 	if err != nil {
 		log.Fatalf("Error opening config file: %s", err)
 	}
@@ -48,9 +44,9 @@ func Run(processor Processor) {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	runOnce(processor, *configFile, cfg, &log)
+	runOnce(processor, configFile, cfg, &log)
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runOnce(processor, *configFile, cfg, &log)
+		runOnce(processor, configFile, cfg, &log)
 	}
 
 	log.Infof("Stopping omnikeeper-deploy-agent (Version: %s)", version)
