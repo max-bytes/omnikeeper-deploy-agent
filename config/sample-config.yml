@@ -7,7 +7,7 @@ keycloak_client_id: landscape-omnikeeper
 collect_interval_seconds: 60
 output_directory: /tmp/okda-variables # changeme
 ansible:
-  disabled: false
+  disabled: true
   ansible_binary: ansible-playbook
   playbooks:
     - contrib/sample-playbook.yml
@@ -18,3 +18,4 @@ ansible:
     inventory: target-host-a, # changeme
     extravars: 
       ansible_port: 2222 # changeme
+      environment: dev

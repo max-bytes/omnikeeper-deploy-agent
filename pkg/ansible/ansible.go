@@ -8,8 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string, variableFile string, log *logrus.Logger) error {
-
+func buildPlaybookCommand(config config.AnsibleCalloutConfig, id string, variableFile string) *playbook.AnsiblePlaybookCmd {
 	playbook := &playbook.AnsiblePlaybookCmd{
 		Playbooks:         config.Playbooks,
 		ConnectionOptions: config.ConnectionOptions,
@@ -26,15 +25,28 @@ func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string,
 	playbook.Options.ExtraVars["host_id"] = id
 	playbook.Options.ExtraVars["host_variable_file"] = variableFile
 
+	return playbook
+}
+
+func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string, variableFile string, simulateOnly bool, log *logrus.Logger) error {
+
+	playbook := buildPlaybookCommand(config, id, variableFile)
+
 	finalCommand, err := playbook.Command()
 	if err != nil {
 		return err
 	}
-	log.Tracef("Calling playbook for item %s: %s", id, finalCommand)
+	if simulateOnly {
+		log.Tracef("[SIMULATING] Calling playbook for item %s: %s", id, finalCommand)
 
-	err = playbook.Run(ctx)
-	if err != nil {
-		return err
+		// not actually calling playbook
+	} else {
+		log.Tracef("Calling playbook for item %s: %s", id, finalCommand)
+
+		err = playbook.Run(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

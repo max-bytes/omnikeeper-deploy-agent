@@ -37,6 +37,6 @@ func TestCallout(t *testing.T) {
 
 	log := logrus.New()
 	log.Out = ioutil.Discard
-	err := Callout(ctx, cfg, "H12312312", "~/H12312312.json", log)
+	err := Callout(ctx, cfg, "H12312312", "~/H12312312.json", false, log)
 	t.Error(err)
 }

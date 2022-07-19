@@ -66,32 +66,27 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	log.Debugf("Finished creating variables files")
 
 	if len(updatedItems) > 0 {
+		log.Debugf("Running ansible for updated items...")
+		for id := range updatedItems {
+			fullOutputFilename := buildFullOutputFilename(id, cfg.OutputDirectory)
+			ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id, fullOutputFilename, cfg.Ansible.Disabled, log)
 
-		if cfg.Ansible.Disabled {
-			log.Debugf("Skipping running ansible because it is disabled in configuration")
-		} else {
-			log.Debugf("Running ansible for updated items...")
-			for id := range updatedItems {
-				fullOutputFilename := buildFullOutputFilename(id, cfg.OutputDirectory)
-				ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id, fullOutputFilename, log)
+			fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
+			if ansibleItemErr != nil {
+				log.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
 
-				fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
-				if ansibleItemErr != nil {
-					log.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
-
-					// delete the .processed file, if present
-					_ = os.Remove(fullProcessedFilename)
-				} else {
-					// place a .processed file to indicate that ansible successfully processed the host
-					_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
-					if err != nil {
-						// can't do much else other than report the error
-						log.Errorf("Error writing .processed file for item %s: %v", id, err)
-					}
+				// delete the .processed file, if present
+				_ = os.Remove(fullProcessedFilename)
+			} else {
+				// place a .processed file to indicate that ansible successfully processed the host
+				_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
+				if err != nil {
+					// can't do much else other than report the error
+					log.Errorf("Error writing .processed file for item %s: %v", id, err)
 				}
 			}
-			log.Debugf("Finished running ansible for updated items...")
 		}
+		log.Debugf("Finished running ansible for updated items...")
 	} else {
 		log.Debugf("Skipping running ansible because no items were updated")
 	}
