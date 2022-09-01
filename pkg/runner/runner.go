@@ -33,6 +33,9 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	}
 	log.SetLevel(parsedLogLevel)
 
+	// NOTE: touch stats file at the beginning
+	healthcheck.TouchStatFile()
+
 	runErrors := runOnce(processor, configFile, cfg, log)
 	if len(runErrors) > 0 {
 		healthcheck.TouchStatFile()
