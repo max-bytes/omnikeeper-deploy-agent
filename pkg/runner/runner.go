@@ -36,15 +36,9 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	// NOTE: touch stats file at the beginning
 	healthcheck.TouchStatFile()
 
-	runErrors := runOnce(processor, configFile, cfg, log)
-	if len(runErrors) > 0 {
-		healthcheck.TouchStatFile()
-	}
+	runOnce(processor, configFile, cfg, log)
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runErrors = runOnce(processor, configFile, cfg, log)
-		if len(runErrors) > 0 {
-			healthcheck.TouchStatFile()
-		}
+		runOnce(processor, configFile, cfg, log)
 	}
 }
 
@@ -101,6 +95,10 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 		log.Debugf("Finished running ansible for updated items...")
 	} else {
 		log.Debugf("Skipping running ansible because no items were updated")
+	}
+
+	if len(itemErr) == 0 {
+		healthcheck.TouchStatFile()
 	}
 
 	log.Debugf("Finished processing")
