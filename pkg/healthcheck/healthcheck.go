@@ -21,20 +21,20 @@ func Check() {
 	var cfg = config.Configuration{}
 	err := config.ReadConfigFromFilename(*configFile, &cfg)
 	if err != nil {
-		fmt.Printf("Error opening config file: %s", err)
+		fmt.Printf("Error opening config file: %s\n", err)
 		os.Exit(1)
 	}
 
 	file, err := os.Stat(statFilename)
 	if err != nil {
-		fmt.Printf("Error reading stats file: %s", err)
+		fmt.Printf("Error reading stats file: %s\n", err)
 		os.Exit(1)
 	}
 	modifiedtime := file.ModTime()
 
 	isTooOld := time.Now().Sub(modifiedtime) > time.Duration(cfg.HealthcheckThresholdSeconds*int64(time.Second))
 	if isTooOld {
-		fmt.Printf("stats file too old")
+		fmt.Println("stats file too old")
 		os.Exit(1)
 	} else {
 		os.Exit(0)

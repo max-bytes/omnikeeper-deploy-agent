@@ -12,6 +12,7 @@ import (
 
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/ansible"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
+	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/healthcheck"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/omnikeeper"
 
 	"github.com/sirupsen/logrus"
@@ -34,12 +35,12 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 
 	runErrors := runOnce(processor, configFile, cfg, log)
 	if len(runErrors) > 0 {
-
+		healthcheck.TouchStatFile()
 	}
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
 		runErrors = runOnce(processor, configFile, cfg, log)
 		if len(runErrors) > 0 {
-
+			healthcheck.TouchStatFile()
 		}
 	}
 }
