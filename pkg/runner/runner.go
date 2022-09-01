@@ -32,13 +32,19 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	}
 	log.SetLevel(parsedLogLevel)
 
-	runOnce(processor, configFile, cfg, log)
+	runErrors := runOnce(processor, configFile, cfg, log)
+	if len(runErrors) > 0 {
+
+	}
 	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
-		runOnce(processor, configFile, cfg, log)
+		runErrors = runOnce(processor, configFile, cfg, log)
+		if len(runErrors) > 0 {
+
+		}
 	}
 }
 
-func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) {
+func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) []error {
 	ctx := context.Background()
 
 	log.Debugf("Starting processing...")
@@ -46,14 +52,14 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password, cfg.OmnikeeperInsecureSkipVerify)
 	if err != nil {
 		log.Errorf("Error building omnikeeper GraphQL client: %w", err)
-		return
+		return []error{err}
 	}
 
 	log.Debugf("Starting fetch from omnikeeper...")
 	outputItems, err := processor.Process(configFile, ctx, okClient, log)
 	if err != nil {
 		log.Errorf("Processing error: %w", err)
-		return
+		return []error{err}
 	}
 	log.Debugf("Finished fetch from omnikeeper")
 
@@ -61,10 +67,11 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
 		log.Errorf("Error creating variables files: %w", err)
-		return
+		return []error{err}
 	}
 	log.Debugf("Finished creating variables files")
 
+	itemErr := make([]error, 0)
 	if len(updatedItems) > 0 {
 		log.Debugf("Running ansible for updated items...")
 		for id := range updatedItems {
@@ -74,15 +81,16 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 			fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
 			if ansibleItemErr != nil {
 				log.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
-
 				// delete the .processed file, if present
 				_ = os.Remove(fullProcessedFilename)
+				itemErr = append(itemErr, ansibleItemErr)
 			} else {
 				// place a .processed file to indicate that ansible successfully processed the host
 				_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
 				if err != nil {
 					// can't do much else other than report the error
 					log.Errorf("Error writing .processed file for item %s: %v", id, err)
+					itemErr = append(itemErr, err)
 				}
 			}
 		}
@@ -92,6 +100,8 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	}
 
 	log.Debugf("Finished processing")
+
+	return itemErr
 }
 
 func buildProcessedFilename(id string) string {
