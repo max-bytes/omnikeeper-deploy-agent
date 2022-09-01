@@ -1,7 +1,6 @@
 package healthcheck
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,15 +10,12 @@ import (
 )
 
 var (
-	configFile   = flag.String("config", "config.yml", "Config file location")
 	statFilename = "/tmp/healthcheck_stat"
 )
 
-func Check() {
-	flag.Parse()
-
+func Check(configFile string) {
 	var cfg = config.Configuration{}
-	err := config.ReadConfigFromFilename(*configFile, &cfg)
+	err := config.ReadConfigFromFilename(configFile, &cfg)
 	if err != nil {
 		fmt.Printf("Error opening config file: %s\n", err)
 		os.Exit(1)
