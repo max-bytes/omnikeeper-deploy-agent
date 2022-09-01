@@ -2,6 +2,8 @@ package healthcheck
 
 import (
 	"flag"
+	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -9,10 +11,9 @@ import (
 )
 
 var (
-	configFile = flag.String("config", "config.yml", "Config file location")
+	configFile   = flag.String("config", "config.yml", "Config file location")
+	statFilename = "/tmp/healthcheck_stat"
 )
-
-var lastSuccess time.Time = time.Now()
 
 func Check() {
 	flag.Parse()
@@ -23,7 +24,13 @@ func Check() {
 		os.Exit(1)
 	}
 
-	isTooOld := time.Now().Sub(lastSuccess) > time.Duration(cfg.HealthcheckThresholdSeconds*int64(time.Second))
+	file, err := os.Stat(statFilename)
+	if err != nil {
+		os.Exit(1)
+	}
+	modifiedtime := file.ModTime()
+
+	isTooOld := time.Now().Sub(modifiedtime) > time.Duration(cfg.HealthcheckThresholdSeconds*int64(time.Second))
 	if isTooOld {
 		os.Exit(1)
 	} else {
@@ -31,6 +38,23 @@ func Check() {
 	}
 }
 
-func SetLastSuccess() {
-	lastSuccess = time.Now()
+func TouchStatFile() {
+	touchFile(statFilename)
+}
+
+func touchFile(fileName string) {
+	_, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		file, err := os.Create(fileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+	} else {
+		currentTime := time.Now().Local()
+		err = os.Chtimes(fileName, currentTime, currentTime)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
