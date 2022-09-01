@@ -15,6 +15,7 @@ password: omnikeeper-client-library-test
 omnikeeper_backend_url: "https://10.0.0.43:45455"
 keycloak_client_id: landscape-omnikeeper
 collect_interval_seconds: 60
+healthcheck_threshold_seconds: 120
 output_directory: ./output
 ansible:
   ansiblebinary: ansible-playbook

@@ -41,6 +41,7 @@ type Configuration struct {
 	OmnikeeperInsecureSkipVerify bool                 `yaml:"omnikeeper_insecure_skip_verify"`
 	KeycloakClientId             string               `yaml:"keycloak_client_id"`
 	CollectIntervalSeconds       int                  `yaml:"collect_interval_seconds"`
+	HealthcheckThresholdSeconds  int64                `yaml:"healthcheck_threshold_seconds"`
 	OutputDirectory              string               `yaml:"output_directory"`
 	Ansible                      AnsibleCalloutConfig `yaml:"ansible"`
 }

@@ -5,6 +5,7 @@ omnikeeper_backend_url: "https://10.0.0.43:45455"
 omnikeeper_insecure_skip_verify: false
 keycloak_client_id: landscape-omnikeeper
 collect_interval_seconds: 60
+healthcheck_threshold_seconds: 120
 output_directory: /tmp/okda-variables # changeme
 ansible:
   disabled: true
