@@ -1,11 +1,21 @@
 package healthcheck
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
-func Check() {
-	os.Exit(0) // TODO
+var lastSuccess time.Time = time.Now()
+
+func Check(threshold time.Duration) {
+	isTooOld := time.Now().Sub(lastSuccess) > threshold
+	if isTooOld {
+		os.Exit(1)
+	} else {
+		os.Exit(0)
+	}
 }
 
-func TouchStatsFile() {
-	// TODO
+func SetLastSuccess() {
+	lastSuccess = time.Now()
 }
