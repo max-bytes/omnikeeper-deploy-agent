@@ -54,13 +54,13 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 		return []error{err}
 	}
 
-	log.Debugf("Starting fetch from omnikeeper...")
+	log.Debugf("Starting fetch from omnikeeper and processing...")
 	outputItems, err := processor.Process(configFile, ctx, okClient, log)
 	if err != nil {
 		log.Errorf("Processing error: %w", err)
 		return []error{err}
 	}
-	log.Debugf("Finished fetch from omnikeeper")
+	log.Debugf("Finished fetch from omnikeeper and processing")
 
 	log.Debugf("Creating variables files...")
 	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
