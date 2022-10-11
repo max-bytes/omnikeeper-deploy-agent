@@ -36,8 +36,8 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	// NOTE: touch stats file at the beginning
 	healthcheck.TouchStatFile()
 
-	runOnce(processor, configFile, cfg, log)
-	for range time.Tick(time.Duration(cfg.CollectIntervalSeconds * int(time.Second))) {
+	ticker := time.NewTicker(time.Duration(cfg.CollectIntervalSeconds * int(time.Second)))
+	for ; true; <-ticker.C {
 		runOnce(processor, configFile, cfg, log)
 	}
 }
