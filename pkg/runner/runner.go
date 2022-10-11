@@ -39,6 +39,7 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	ticker := time.NewTicker(time.Duration(cfg.CollectIntervalSeconds * int(time.Second)))
 	for ; true; <-ticker.C {
 		runOnce(processor, configFile, cfg, log)
+		ticker.Reset(time.Duration(cfg.CollectIntervalSeconds * int(time.Second)))
 	}
 }
 
