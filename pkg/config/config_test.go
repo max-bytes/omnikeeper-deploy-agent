@@ -18,10 +18,10 @@ collect_interval_seconds: 60
 healthcheck_threshold_seconds: 120
 output_directory: ./output
 ansible:
-  ansiblebinary: ansible-playbook
+  ansible_binary: ansible-playbook
   playbooks:
     - playbook.yml
-  connectionoptions:
+  connection_options:
     connection: local
     privatekey: id_rsa
     user:       user
