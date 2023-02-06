@@ -29,14 +29,16 @@ func TestCallout(t *testing.T) {
 	}
 
 	cfg := config.AnsibleCalloutConfig{
-		Playbooks:         []string{"playbook.yml"},
-		Options:           ansiblePlaybookOptions,
-		AnsibleBinary:     "/home/max/omnikeeper-deploy-agent-stack/ansible-playbook-wrapper",
+		Playbooks: []string{"../../contrib/sample-playbook.yml"},
+		Options:   ansiblePlaybookOptions,
+		// AnsibleBinary:     "/home/max/omnikeeper-deploy-agent-stack/ansible-playbook-wrapper",
 		ConnectionOptions: ansibleConnectionOptions,
 	}
 
 	log := logrus.New()
 	log.Out = ioutil.Discard
-	err := Callout(ctx, cfg, "H12312312", "~/H12312312.json", false, log)
-	t.Error(err)
+	err := Callout(ctx, cfg, "H12312312", "H12312312.json", false, logrus.NewEntry(log))
+	if err != nil {
+		t.Error(err)
+	}
 }

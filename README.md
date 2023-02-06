@@ -15,3 +15,9 @@ Prerequisites for running the sample app:
 ```bash
 go run cmd/sample_app/main.go --config config/sample-config.yml
 ```
+
+## Run tests
+
+```bash
+go test ./...
+```

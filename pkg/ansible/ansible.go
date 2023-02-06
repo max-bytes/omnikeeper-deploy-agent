@@ -2,35 +2,53 @@ package ansible
 
 import (
 	"context"
+	"io"
 
+	"github.com/apenella/go-ansible/pkg/execute"
 	"github.com/apenella/go-ansible/pkg/playbook"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
-func buildPlaybookCommand(config config.AnsibleCalloutConfig, id string, variableFile string) *playbook.AnsiblePlaybookCmd {
+func buildPlaybookCommand(config config.AnsibleCalloutConfig, id string, variableFile string, logWriter io.Writer) *playbook.AnsiblePlaybookCmd {
+	execute := execute.NewDefaultExecute(
+		execute.WithWrite(logWriter),
+	)
+
+	// clone/copy options to be able to change them independently in parallel setup
+	myAnsiblePlaybookOptions := *config.Options
+	if myAnsiblePlaybookOptions.ExtraVars == nil {
+		// if the extra vars map is not initialized through config, we do it here
+		myAnsiblePlaybookOptions.ExtraVars = make(map[string]interface{})
+	} else {
+		// copy existing extra vars, to be able to modify them per playbook run
+		tmp := make(map[string]interface{})
+		for k, v := range myAnsiblePlaybookOptions.ExtraVars {
+			tmp[k] = v
+		}
+		myAnsiblePlaybookOptions.ExtraVars = tmp
+	}
+	// overwrite/force set ansible variable host_id and host_variable_file
+	myAnsiblePlaybookOptions.ExtraVars["host_id"] = id
+	myAnsiblePlaybookOptions.ExtraVars["host_variable_file"] = variableFile
+
 	playbook := &playbook.AnsiblePlaybookCmd{
 		Playbooks:         config.Playbooks,
 		ConnectionOptions: config.ConnectionOptions,
-		Options:           config.Options,
+		Options:           &myAnsiblePlaybookOptions,
 		Binary:            config.AnsibleBinary,
+		Exec:              execute,
 	}
-
-	// if the extra vars map is not initialized through config, we do it here
-	if playbook.Options.ExtraVars == nil {
-		playbook.Options.ExtraVars = make(map[string]interface{})
-	}
-
-	// overwrite/force set ansible variable host_id and host_variable_file
-	playbook.Options.ExtraVars["host_id"] = id
-	playbook.Options.ExtraVars["host_variable_file"] = variableFile
 
 	return playbook
 }
 
-func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string, variableFile string, simulateOnly bool, log *logrus.Logger) error {
+func Callout(ctx context.Context, config config.AnsibleCalloutConfig, id string, variableFile string, simulateOnly bool, log *logrus.Entry) error {
 
-	playbook := buildPlaybookCommand(config, id, variableFile)
+	logWriter := log.Writer()
+	defer logWriter.Close()
+
+	playbook := buildPlaybookCommand(config, id, variableFile, logWriter)
 
 	finalCommand, err := playbook.Command()
 	if err != nil {

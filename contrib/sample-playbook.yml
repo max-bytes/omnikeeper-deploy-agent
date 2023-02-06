@@ -1,7 +1,8 @@
 ---
 
-- hosts: all
-  gather_facts: no
+- gather_facts: no
+  hosts: all
+  connection: local 
   tasks:
     - name: include host variables
       include_vars: 
@@ -12,8 +13,12 @@
       ansible.builtin.debug:
         var: host_id
 
-    - name: display ok_vars for host
-      ansible.builtin.debug:
-        var: ok_vars
+    # - name: fail
+    #   ansible.builtin.fail:
+    #     msg: "force failure"
+
+    # - name: display ok_vars for host
+    #   ansible.builtin.debug:
+    #     var: ok_vars
 
     # extend me...

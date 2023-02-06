@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/hasura/go-graphql-client"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/runner"
-	"github.com/shurcooL/graphql"
 	"github.com/sirupsen/logrus"
 )
 

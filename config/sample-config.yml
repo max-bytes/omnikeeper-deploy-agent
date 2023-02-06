@@ -1,14 +1,15 @@
 log_level: Trace
 username: omnikeeper-client-library-test
 password: omnikeeper-client-library-test
-omnikeeper_backend_url: "https://10.0.0.43:45455"
+omnikeeper_backend_url: "https://10.0.0.43:45456"
 omnikeeper_insecure_skip_verify: false
 keycloak_client_id: landscape-omnikeeper
 collect_interval_seconds: 60
 healthcheck_threshold_seconds: 120
 output_directory: /tmp/okda-variables # changeme
 ansible:
-  disabled: true
+  disabled: false
+  parallel_processing: true
   ansible_binary: ansible-playbook
   playbooks:
     - contrib/sample-playbook.yml
@@ -19,4 +20,4 @@ ansible:
     inventory: target-host-a, # changeme
     extravars: 
       ansible_port: 2222 # changeme
-      environment: dev
+      env: dev

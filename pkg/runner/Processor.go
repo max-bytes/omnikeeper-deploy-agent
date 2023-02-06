@@ -3,7 +3,7 @@ package runner
 import (
 	"context"
 
-	"github.com/shurcooL/graphql"
+	"github.com/hasura/go-graphql-client"
 	"github.com/sirupsen/logrus"
 )
 

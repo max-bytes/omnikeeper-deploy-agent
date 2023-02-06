@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shurcooL/graphql"
+	"github.com/hasura/go-graphql-client"
 	"golang.org/x/oauth2"
 )
 

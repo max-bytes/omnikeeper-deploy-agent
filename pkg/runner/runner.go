@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/ansible"
@@ -50,14 +51,14 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 
 	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password, cfg.OmnikeeperInsecureSkipVerify)
 	if err != nil {
-		log.Errorf("Error building omnikeeper GraphQL client: %w", err)
+		log.Errorf("Error building omnikeeper GraphQL client: %v", err)
 		return []error{err}
 	}
 
 	log.Debugf("Starting fetch from omnikeeper and processing...")
 	outputItems, err := processor.Process(configFile, ctx, okClient, log)
 	if err != nil {
-		log.Errorf("Processing error: %w", err)
+		log.Errorf("Processing error: %v", err)
 		return []error{err}
 	}
 	log.Debugf("Finished fetch from omnikeeper and processing")
@@ -65,34 +66,48 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	log.Debugf("Creating variables files...")
 	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
-		log.Errorf("Error creating variables files: %w", err)
+		log.Errorf("Error creating variables files: %v", err)
 		return []error{err}
 	}
 	log.Debugf("Finished creating variables files")
 
 	itemErr := make([]error, 0)
+	itemErrMutex := &sync.Mutex{}
 	if len(updatedItems) > 0 {
 		log.Debugf("Running ansible for updated items...")
-		for id := range updatedItems {
-			fullOutputFilename := buildFullOutputFilename(id, cfg.OutputDirectory)
-			ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id, fullOutputFilename, cfg.Ansible.Disabled, log)
 
-			fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
-			if ansibleItemErr != nil {
-				log.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
-				// delete the .processed file, if present
-				_ = os.Remove(fullProcessedFilename)
-				itemErr = append(itemErr, ansibleItemErr)
-			} else {
-				// place a .processed file to indicate that ansible successfully processed the host
-				_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
+		if cfg.Ansible.ParallelProcessing {
+			log.Debugf("Running in parallel...")
+			// parallel processing of playbooks
+			var wg sync.WaitGroup
+			wg.Add(len(updatedItems))
+
+			for id := range updatedItems {
+				itemLog := log.WithField("item", id)
+				go func(id string) {
+					defer wg.Done()
+
+					err := runItem(id, ctx, itemLog)
+					if err != nil {
+						itemErrMutex.Lock()
+						itemErr = append(itemErr, err)
+						itemErrMutex.Unlock()
+					}
+				}(id)
+			}
+			wg.Wait()
+		} else {
+			log.Debugf("Running in series...")
+			// serial processing of playbooks
+			for id := range updatedItems {
+				itemLog := log.WithField("item", id)
+				err := runItem(id, ctx, itemLog)
 				if err != nil {
-					// can't do much else other than report the error
-					log.Errorf("Error writing .processed file for item %s: %v", id, err)
 					itemErr = append(itemErr, err)
 				}
 			}
 		}
+
 		log.Debugf("Finished running ansible for updated items...")
 	} else {
 		log.Debugf("Skipping running ansible because no items were updated")
@@ -100,11 +115,35 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 
 	if len(itemErr) == 0 {
 		healthcheck.TouchStatFile()
+	} else {
+		log.Errorf("Encountered errors in %d items... items with errors will be re-run", len(itemErr))
 	}
 
 	log.Debugf("Finished processing")
 
 	return itemErr
+}
+
+func runItem(id string, ctx context.Context, itemLog *logrus.Entry) error {
+	fullOutputFilename := buildFullOutputFilename(id, cfg.OutputDirectory)
+	ansibleItemErr := ansible.Callout(ctx, cfg.Ansible, id, fullOutputFilename, cfg.Ansible.Disabled, itemLog)
+
+	fullProcessedFilename := buildFullProcessedFilename(id, cfg.OutputDirectory)
+	if ansibleItemErr != nil {
+		itemLog.Errorf("Error running ansible for item %s: %v", id, ansibleItemErr)
+		// delete the .processed file, if present
+		_ = os.Remove(fullProcessedFilename)
+		return ansibleItemErr
+	} else {
+		// place a .processed file to indicate that ansible successfully processed the host
+		_, err := os.OpenFile(fullProcessedFilename, os.O_RDONLY|os.O_CREATE, 0666)
+		if err != nil {
+			// can't do much else other than report the error
+			itemLog.Errorf("Error writing .processed file for item %s: %v", id, err)
+			return err
+		}
+	}
+	return nil
 }
 
 func buildProcessedFilename(id string) string {
@@ -132,7 +171,7 @@ func createVariablesFiles(outputItems map[string]interface{}, outputDirectory st
 	for id, output := range outputItems {
 		newJsonOutput, err := json.MarshalIndent(output, "", " ")
 		if err != nil {
-			log.Errorf("Error marshalling output JSON for ID %s: %w", id, err)
+			log.Errorf("Error marshalling output JSON for ID %s: %v", id, err)
 			continue
 		}
 		outputFilename := buildOutputFilename(id)
@@ -146,7 +185,7 @@ func createVariablesFiles(outputItems map[string]interface{}, outputDirectory st
 			readOldJsonOutput, err := ioutil.ReadAll(oldFile)
 			if err != nil {
 				// if we cannot read it, log a warning, but otherwise continue
-				log.Warningf("Error reading existing output file %s: %w", outputFilename, err)
+				log.Warningf("Error reading existing output file %s: %v", outputFilename, err)
 			} else {
 				oldJsonOutput = readOldJsonOutput
 			}
@@ -162,7 +201,7 @@ func createVariablesFiles(outputItems map[string]interface{}, outputDirectory st
 		if !processedFileExists || bytes.Compare(oldJsonOutput, newJsonOutput) != 0 {
 			err = ioutil.WriteFile(fullOutputFilename, newJsonOutput, os.ModePerm)
 			if err != nil {
-				log.Errorf("Error writing output JSON for ID %s: %w", id, err)
+				log.Errorf("Error writing output JSON for ID %s: %v", id, err)
 				continue
 			}
 			updatedItems[id] = true
@@ -174,6 +213,7 @@ func createVariablesFiles(outputItems map[string]interface{}, outputDirectory st
 	}
 	// delete old items (i.e. files that have not been processed)
 	dirRead, _ := os.Open(outputDirectory)
+	defer dirRead.Close()
 	dirFiles, _ := dirRead.Readdir(0)
 	for index := range dirFiles {
 		fileHere := dirFiles[index]
@@ -183,7 +223,7 @@ func createVariablesFiles(outputItems map[string]interface{}, outputDirectory st
 			fullFilename := filepath.Join(outputDirectory, filename)
 			err := os.Remove(fullFilename)
 			if err != nil {
-				log.Errorf("Error deleting old file %s: %w", filename, err)
+				log.Errorf("Error deleting old file %s: %v", filename, err)
 				continue
 			}
 		}

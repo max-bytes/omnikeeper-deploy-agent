@@ -7,7 +7,7 @@ import (
 
 	"github.com/apenella/go-ansible/pkg/options"
 	"github.com/apenella/go-ansible/pkg/playbook"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func ReadConfigFromBytes(byteValue []byte, cfg *Configuration) error {
@@ -47,9 +47,10 @@ type Configuration struct {
 }
 
 type AnsibleCalloutConfig struct {
-	Disabled          bool
-	Playbooks         []string
-	Options           *playbook.AnsiblePlaybookOptions
-	ConnectionOptions *options.AnsibleConnectionOptions `yaml:"connection_options"`
-	AnsibleBinary     string                            `yaml:"ansible_binary"`
+	Disabled           bool
+	Playbooks          []string
+	Options            *playbook.AnsiblePlaybookOptions
+	ConnectionOptions  *options.AnsibleConnectionOptions `yaml:"connection_options"`
+	AnsibleBinary      string                            `yaml:"ansible_binary"`
+	ParallelProcessing bool                              `yaml:"parallel_processing"`
 }
