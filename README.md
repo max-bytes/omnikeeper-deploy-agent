@@ -12,6 +12,7 @@ Fetches host data from omnikeeper, transforms it and stores it in a JSON config 
 
 Prerequisites for running the sample app:
 
+- working omnikeeper instance
 - working ansible_playbook executable
 - properly configured config file
 - playbook that reads the variable file (using variable {{host_variable_file}} that contains the variable file location), see contrib/sample-playbook.yml
