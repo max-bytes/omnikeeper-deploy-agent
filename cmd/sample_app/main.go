@@ -5,7 +5,7 @@ import (
 	"flag"
 
 	"github.com/hasura/go-graphql-client"
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/runner"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/runner"
 	"github.com/sirupsen/logrus"
 )
 

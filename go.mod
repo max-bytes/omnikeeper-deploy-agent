@@ -1,4 +1,4 @@
-module github.com/max-bytes/omnikeeper-deploy-agent
+module github.com/max-bytes/omnikeeper-deploy-agent/v2
 
 go 1.17
 

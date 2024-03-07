@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/ansible"
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/healthcheck"
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/omnikeeper"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/ansible"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/config"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/healthcheck"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/omnikeeper"
 
 	"github.com/sirupsen/logrus"
 )

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/config"
+	"github.com/max-bytes/omnikeeper-deploy-agent/v2/pkg/config"
 )
 
 var (
