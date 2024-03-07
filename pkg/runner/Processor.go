@@ -8,8 +8,9 @@ import (
 )
 
 type ProcessResultItem struct {
-	Success bool
-	Logs    []string
+	Success  bool
+	Logs     []string
+	BaseData interface{}
 }
 
 type Processor interface {

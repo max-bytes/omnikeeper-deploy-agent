@@ -129,8 +129,9 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	itemLogs := logCollector.GetLogs()
 	for id, logs := range itemLogs {
 		results[id] = ProcessResultItem{
-			Logs:    logs,
-			Success: len(itemErr[id]) <= 0,
+			Logs:     logs,
+			Success:  len(itemErr[id]) <= 0,
+			BaseData: outputItems[id],
 		}
 	}
 	err = processor.PostProcess(configFile, ctx, okClient, results)
