@@ -133,7 +133,11 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 			Success: len(itemErr[id]) <= 0,
 		}
 	}
-	processor.PostProcess(configFile, ctx, okClient, results)
+	err = processor.PostProcess(configFile, ctx, okClient, results)
+	if err != nil {
+		log.Errorf("Error post-processing: %v", err)
+		return
+	}
 
 	log.Debugf("Finished processing")
 }
