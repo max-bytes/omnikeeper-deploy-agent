@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	"github.com/hasura/go-graphql-client"
 	"github.com/max-bytes/omnikeeper-deploy-agent/pkg/runner"
@@ -36,25 +35,32 @@ type SampleAppProcessor struct {
 }
 
 func (p SampleAppProcessor) Process(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error) {
-	variables := map[string]interface{}{}
-	var query = SampleAppQuery{}
-	err := okClient.Query(ctx, &query, variables)
-	if err != nil {
-		return nil, fmt.Errorf("Error running GraphQL query: %w", err)
-	}
+	return map[string]interface{}{"test": ItemOutput{Name: "foo"}, "test2": ItemOutput{Name: "bar"}}, nil
+}
 
-	namedCIs := query.TraitEntities.Named.All
-	ret := make(map[string]interface{}, len(namedCIs))
-	for _, nci := range namedCIs {
-		inputHostCI := nci.Entity
-		ciid := nci.Ciid
+// func (p SampleAppProcessor) Process(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error) {
+// 	variables := map[string]interface{}{}
+// 	var query = SampleAppQuery{}
+// 	err := okClient.Query(ctx, &query, variables)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("Error running GraphQL query: %w", err)
+// 	}
+// 	namedCIs := query.TraitEntities.Named.All
+// 	ret := make(map[string]interface{}, len(namedCIs))
+// 	for _, nci := range namedCIs {
+// 		inputHostCI := nci.Entity
+// 		ciid := nci.Ciid
 
-		ret[ciid] = ItemOutput{
-			Name: inputHostCI.Name,
-		}
-	}
+// 		ret[ciid] = ItemOutput{
+// 			Name: inputHostCI.Name,
+// 		}
+// 	}
 
-	return ret, nil
+// 	return ret, nil
+// }
+
+func (p SampleAppProcessor) PostProcess(configFile string, ctx context.Context, okClient *graphql.Client, results map[string]runner.ProcessResultItem) {
+	println(results)
 }
 
 type ItemOutput struct {

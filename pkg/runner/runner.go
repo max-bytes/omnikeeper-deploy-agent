@@ -20,6 +20,7 @@ import (
 )
 
 var cfg = config.Configuration{}
+var logCollector = NewLogCollectorHook()
 
 func Run(processor Processor, configFile string, log *logrus.Logger) {
 	log.Infof("Loading config from file: %s", configFile)
@@ -37,6 +38,8 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	// NOTE: touch stats file at the beginning
 	healthcheck.TouchStatFile()
 
+	log.AddHook(logCollector)
+
 	ticker := time.NewTicker(time.Duration(cfg.CollectIntervalSeconds * int(time.Second)))
 	for ; true; <-ticker.C {
 		runOnce(processor, configFile, cfg, log)
@@ -44,7 +47,7 @@ func Run(processor Processor, configFile string, log *logrus.Logger) {
 	}
 }
 
-func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) []error {
+func runOnce(processor Processor, configFile string, cfg config.Configuration, log *logrus.Logger) {
 	ctx := context.Background()
 
 	log.Debugf("Starting processing...")
@@ -52,14 +55,14 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	okClient, err := omnikeeper.BuildGraphQLClient(ctx, cfg.OmnikeeperBackendUrl, cfg.KeycloakClientId, cfg.Username, cfg.Password, cfg.OmnikeeperInsecureSkipVerify)
 	if err != nil {
 		log.Errorf("Error building omnikeeper GraphQL client: %v", err)
-		return []error{err}
+		return
 	}
 
 	log.Debugf("Starting fetch from omnikeeper and processing...")
 	outputItems, err := processor.Process(configFile, ctx, okClient, log)
 	if err != nil {
 		log.Errorf("Processing error: %v", err)
-		return []error{err}
+		return
 	}
 	log.Debugf("Finished fetch from omnikeeper and processing")
 
@@ -67,11 +70,13 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 	updatedItems, err := createVariablesFiles(outputItems, cfg.OutputDirectory, log)
 	if err != nil {
 		log.Errorf("Error creating variables files: %v", err)
-		return []error{err}
+		return
 	}
 	log.Debugf("Finished creating variables files")
 
-	itemErr := make([]error, 0)
+	logCollector.ClearLogs()
+
+	itemErr := make(map[string][]error)
 	itemErrMutex := &sync.Mutex{}
 	if len(updatedItems) > 0 {
 		log.Debugf("Running ansible for updated items...")
@@ -90,7 +95,7 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 					err := runItem(id, ctx, itemLog)
 					if err != nil {
 						itemErrMutex.Lock()
-						itemErr = append(itemErr, err)
+						itemErr[id] = append(itemErr[id], err)
 						itemErrMutex.Unlock()
 					}
 				}(id)
@@ -103,7 +108,7 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 				itemLog := log.WithField("item", id)
 				err := runItem(id, ctx, itemLog)
 				if err != nil {
-					itemErr = append(itemErr, err)
+					itemErr[id] = append(itemErr[id], err)
 				}
 			}
 		}
@@ -119,9 +124,18 @@ func runOnce(processor Processor, configFile string, cfg config.Configuration, l
 		log.Errorf("Encountered errors in %d items... items with errors will be re-run", len(itemErr))
 	}
 
-	log.Debugf("Finished processing")
+	// post-process
+	results := make(map[string]ProcessResultItem)
+	itemLogs := logCollector.GetLogs()
+	for id, logs := range itemLogs {
+		results[id] = ProcessResultItem{
+			Logs:    logs,
+			Success: len(itemErr[id]) <= 0,
+		}
+	}
+	processor.PostProcess(configFile, ctx, okClient, results)
 
-	return itemErr
+	log.Debugf("Finished processing")
 }
 
 func runItem(id string, ctx context.Context, itemLog *logrus.Entry) error {
