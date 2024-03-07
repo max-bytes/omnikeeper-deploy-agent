@@ -59,7 +59,7 @@ func (p SampleAppProcessor) Process(configFile string, ctx context.Context, okCl
 // 	return ret, nil
 // }
 
-func (p SampleAppProcessor) PostProcess(configFile string, ctx context.Context, okClient *graphql.Client, results map[string]runner.ProcessResultItem) error {
+func (p SampleAppProcessor) PostProcess(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger, results map[string]runner.ProcessResultItem) error {
 	println(results)
 	return nil
 }

@@ -15,5 +15,5 @@ type ProcessResultItem struct {
 
 type Processor interface {
 	Process(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger) (map[string]interface{}, error)
-	PostProcess(configFile string, ctx context.Context, okClient *graphql.Client, results map[string]ProcessResultItem) error
+	PostProcess(configFile string, ctx context.Context, okClient *graphql.Client, log *logrus.Logger, results map[string]ProcessResultItem) error
 }
